@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const http = require('http');
+const crypto = require('crypto');
 const { exec, execFile } = require('child_process');
 const multer = require('multer');
 const fs = require('fs');
@@ -117,6 +118,76 @@ const upload = multer({
 
 app.use(express.json());
 
+// ── Session token store ─────────────────────────────────────────────────────
+const sessions = new Map();
+const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+function createSession() {
+  const token = crypto.randomBytes(32).toString('hex');
+  sessions.set(token, { createdAt: Date.now() });
+  return token;
+}
+
+function isValidSession(token) {
+  if (!token) return false;
+  const session = sessions.get(token);
+  if (!session) return false;
+  if (Date.now() - session.createdAt > SESSION_TTL) {
+    sessions.delete(token);
+    return false;
+  }
+  return true;
+}
+
+// Cleanup expired sessions every hour
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, session] of sessions) {
+    if (now - session.createdAt > SESSION_TTL) sessions.delete(token);
+  }
+}, 60 * 60 * 1000);
+
+// ── Rate limiter for PIN auth ───────────────────────────────────────────────
+const authAttempts = new Map();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX = 10;
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const attempt = authAttempts.get(ip);
+  if (!attempt || now - attempt.windowStart > RATE_LIMIT_WINDOW) {
+    authAttempts.set(ip, { count: 1, windowStart: now });
+    return true;
+  }
+  if (attempt.count >= RATE_LIMIT_MAX) return false;
+  attempt.count++;
+  return true;
+}
+
+// Cleanup rate limit entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, attempt] of authAttempts) {
+    if (now - attempt.windowStart > RATE_LIMIT_WINDOW) authAttempts.delete(ip);
+  }
+}, 5 * 60 * 1000);
+
+// ── Auth middleware (protects all /api/* except /api/auth and /api/config) ───
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api/') || req.path === '/api/auth' || req.path === '/api/config') {
+    return next();
+  }
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const token = authHeader.slice(7);
+  if (!isValidSession(token)) {
+    return res.status(401).json({ error: 'Invalid or expired session' });
+  }
+  next();
+});
+
 // Secure document serving (prevents path traversal and blocks symlink escapes)
 app.get('/documents/:filename', (req, res) => {
   const { filename } = req.params;
@@ -145,12 +216,17 @@ app.get('/documents/:filename', (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- PIN Authentication (server-side) ---
+// --- PIN Authentication (server-side, rate-limited, returns session token) ---
 app.post('/api/auth', (req, res) => {
+  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  if (!checkRateLimit(ip)) {
+    return res.status(429).json({ success: false, error: 'Too many attempts. Try again later.' });
+  }
   const { pin } = req.body;
   if (typeof pin !== 'string') return res.status(400).json({ success: false, error: 'PIN required' });
   if (pin === config.pin) {
-    res.json({ success: true });
+    const token = createSession();
+    res.json({ success: true, token });
   } else {
     res.status(401).json({ success: false, error: 'Incorrect PIN' });
   }
@@ -238,11 +314,11 @@ app.put('/api/tasks/:id', async (req, res) => {
   const options = {
     hostname: kanbanUrl.hostname,
     port: kanbanUrl.port || 3000,
-    path: `/api/tasks/${id}`,
+    path: `/api/tasks/${encodeURIComponent(id)}`,
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      'Content-Length': data.length
+      'Content-Length': Buffer.byteLength(data)
     }
   };
   
@@ -270,7 +346,7 @@ app.post('/api/tasks', async (req, res) => {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Content-Length': data.length
+      'Content-Length': Buffer.byteLength(data)
     }
   };
   
@@ -299,8 +375,8 @@ app.get('/api/sessions', async (req, res) => {
 // Get actions log (recent activity)
 app.get('/api/activity', async (req, res) => {
   if (!config.kanban.enabled) return res.json({ activity: [] });
-  exec(`tail -50 "${config.kanban.actionsLog}" 2>/dev/null`, (err, stdout) => {
-    const lines = stdout.trim().split('\n').filter(l => l).reverse();
+  execFile('tail', ['-50', config.kanban.actionsLog], (err, stdout) => {
+    const lines = (stdout || '').trim().split('\n').filter(l => l).reverse();
     res.json({ activity: lines });
   });
 });
@@ -308,11 +384,16 @@ app.get('/api/activity', async (req, res) => {
 // Get VPS actions log
 app.get('/api/vps-actions-log', async (req, res) => {
   if (!config.vps.enabled) return res.json({ activity: [], error: 'VPS integration not configured' });
-  const sshCmd = `ssh -i "${config.vps.sshKeyPath}" -o ConnectTimeout=${config.vps.connectTimeout} ${config.vps.username}@${config.vps.host} "tail -50 ${config.vps.remotePath} 2>/dev/null" 2>/dev/null`;
-  exec(sshCmd, (err, stdout, stderr) => {
+  const sshArgs = [
+    '-i', config.vps.sshKeyPath,
+    '-o', `ConnectTimeout=${config.vps.connectTimeout}`,
+    '-o', 'StrictHostKeyChecking=accept-new',
+    `${config.vps.username}@${config.vps.host}`,
+    `tail -50 ${config.vps.remotePath}`
+  ];
+  execFile('ssh', sshArgs, { timeout: (config.vps.connectTimeout + 10) * 1000 }, (err, stdout) => {
     if (err) {
-      res.json({ activity: [], error: 'Could not connect to VPS' });
-      return;
+      return res.json({ activity: [], error: 'Could not connect to VPS' });
     }
     const lines = stdout.trim().split('\n').filter(l => l).reverse();
     res.json({ activity: lines });
@@ -636,10 +717,11 @@ app.get('/api/model-usage', (req, res) => {
 // --- Gateway Restart ---
 app.post('/api/gateway/restart', (req, res) => {
   const uid = process.getuid ? process.getuid() : 502;
-  exec(`launchctl kickstart -k gui/${uid}/${config.gateway.launchdLabel}`, (err, stdout, stderr) => {
+  const serviceTarget = `gui/${uid}/${config.gateway.launchdLabel}`;
+  execFile('launchctl', ['kickstart', '-k', serviceTarget], (err) => {
     if (err) {
       // Fallback: kill and let launchd KeepAlive restart it
-      exec('pkill -f openclaw-gateway', () => {});
+      execFile('pkill', ['-f', 'openclaw-gateway'], () => {});
       return res.json({ success: true, method: 'kill-restart', message: 'Gateway killed, launchd will restart it' });
     }
     res.json({ success: true, method: 'launchctl-kickstart', message: 'Gateway restarted via launchd' });
@@ -718,11 +800,11 @@ app.get('/api/system-health', (req, res) => {
 app.post('/api/agent-chat', (req, res) => {
   const { agentId, message } = req.body;
   if (!agentId || !message) return res.status(400).json({ error: 'agentId and message required' });
-  // Sanitize inputs for shell
+  if (typeof agentId !== 'string' || typeof message !== 'string') return res.status(400).json({ error: 'Invalid input' });
   const safeAgent = agentId.replace(/[^a-zA-Z0-9_-]/g, '');
-  const safeMsg = message.replace(/'/g, "'\\''");
-  exec(`openclaw agent --agent '${safeAgent}' --message '${safeMsg}' 2>&1`, { timeout: 120000 }, (err, stdout) => {
-    res.json({ success: !err, output: stdout?.trim() || '', error: err?.message });
+  if (!safeAgent) return res.status(400).json({ error: 'Invalid agent ID' });
+  execFile('openclaw', ['agent', '--agent', safeAgent, '--message', message], { timeout: 120000 }, (err, stdout, stderr) => {
+    res.json({ success: !err, output: (stdout || stderr || '').trim(), error: err?.message });
   });
 });
 
@@ -730,22 +812,35 @@ app.post('/api/agent-chat', (req, res) => {
 app.post('/api/cron/:id/trigger', (req, res) => {
   const { id } = req.params;
   const safeId = id.replace(/[^a-zA-Z0-9_-]/g, '');
-  exec(`openclaw cron trigger '${safeId}' 2>&1 || openclaw cron run '${safeId}' 2>&1`, { timeout: 10000 }, (err, stdout) => {
-    res.json({ success: !err, output: stdout?.trim() || '', error: err?.message });
+  if (!safeId) return res.status(400).json({ error: 'Invalid cron ID' });
+  execFile('openclaw', ['cron', 'trigger', safeId], { timeout: 10000 }, (err, stdout, stderr) => {
+    if (err) {
+      // Fallback to 'run' subcommand
+      execFile('openclaw', ['cron', 'run', safeId], { timeout: 10000 }, (err2, stdout2, stderr2) => {
+        res.json({ success: !err2, output: (stdout2 || stderr2 || '').trim(), error: err2?.message });
+      });
+      return;
+    }
+    res.json({ success: true, output: (stdout || '').trim() });
   });
 });
 
 // --- Memory Search ---
 app.get('/api/memory/search', (req, res) => {
   const { q, agent } = req.query;
-  if (!q) return res.status(400).json({ error: 'query required' });
-  const safeQ = q.replace(/'/g, "'\\''");
-  const agentFlag = agent ? `--agent '${agent.replace(/[^a-zA-Z0-9_-]/g, '')}'` : '';
-  exec(`openclaw memory search ${agentFlag} --json --max-results 10 '${safeQ}' 2>&1`, { timeout: 10000 }, (err, stdout) => {
+  if (!q || typeof q !== 'string') return res.status(400).json({ error: 'query required' });
+  const args = ['memory', 'search', '--json', '--max-results', '10'];
+  if (agent && typeof agent === 'string') {
+    const safeAgent = agent.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (safeAgent) args.push('--agent', safeAgent);
+  }
+  args.push(q);
+  execFile('openclaw', args, { timeout: 10000 }, (err, stdout, stderr) => {
+    const output = (stdout || stderr || '').trim();
     try {
-      res.json({ results: JSON.parse(stdout) });
+      res.json({ results: JSON.parse(output) });
     } catch {
-      res.json({ results: [], raw: stdout?.trim() });
+      res.json({ results: [], raw: output });
     }
   });
 });
@@ -753,9 +848,13 @@ app.get('/api/memory/search', (req, res) => {
 // --- Memory Reindex ---
 app.post('/api/memory/reindex', (req, res) => {
   const { agent } = req.body;
-  const agentFlag = agent ? `--agent '${agent.replace(/[^a-zA-Z0-9_-]/g, '')}'` : '';
-  exec(`openclaw memory index ${agentFlag} --force 2>&1`, { timeout: 30000 }, (err, stdout) => {
-    res.json({ success: !err, output: stdout?.trim() || '' });
+  const args = ['memory', 'index', '--force'];
+  if (agent && typeof agent === 'string') {
+    const safeAgent = agent.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (safeAgent) args.splice(2, 0, '--agent', safeAgent);
+  }
+  execFile('openclaw', args, { timeout: 30000 }, (err, stdout, stderr) => {
+    res.json({ success: !err, output: (stdout || stderr || '').trim() });
   });
 });
 
@@ -1006,7 +1105,7 @@ const ANTFARM_DB = config.openclaw.antfarmDb;
 
 app.get('/api/antfarm/runs', (req, res) => {
   const query = "SELECT id, workflow_id, task, status, created_at, updated_at FROM runs ORDER BY created_at DESC LIMIT 20;";
-  exec(`sqlite3 -json "${ANTFARM_DB}" "${query}" 2>/dev/null`, (err, stdout) => {
+  execFile('sqlite3', ['-json', ANTFARM_DB, query], (err, stdout) => {
     try {
       res.json({ runs: JSON.parse(stdout) });
     } catch {
@@ -1229,7 +1328,15 @@ function pollSessionStores() {
   });
 }
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  // Authenticate WebSocket connection via token query param
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const token = url.searchParams.get('token');
+  if (!isValidSession(token)) {
+    ws.close(4001, 'Authentication required');
+    return;
+  }
+
   // Backfill last 50 antfarm events
   try {
     const content = fs.readFileSync(EVENTS_FILE, 'utf-8');

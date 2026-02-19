@@ -614,7 +614,7 @@
         <div class="login-box">
             <h1>🎯 Mission Control</h1>
             <p>Enter your PIN to access</p>
-            <input type="password" id="pin-input" class="pin-input" maxlength="4" placeholder="••••" autocomplete="off">
+            <input type="password" id="pin-input" class="pin-input" maxlength="32" placeholder="••••" autocomplete="off">
             <button class="login-btn" onclick="checkPin()">Access Dashboard</button>
             <div id="login-error" class="login-error">Incorrect PIN. Try again.</div>
         </div>
@@ -1316,6 +1316,24 @@
             ) ? '/mission-control' : '';
         }
 
+        // ── Auth token management ──────────────────────────────────────
+        let authToken = sessionStorage.getItem('mc_token') || '';
+
+        // Auto-inject Authorization header for all API calls (except auth & config)
+        const _originalFetch = window.fetch;
+        window.fetch = function(url, options = {}) {
+            if (typeof url === 'string' && url.includes('/api/') &&
+                !url.endsWith('/api/auth') && !url.endsWith('/api/config') && authToken) {
+                if (!options.headers) options.headers = {};
+                if (options.headers instanceof Headers) {
+                    options.headers.set('Authorization', `Bearer ${authToken}`);
+                } else {
+                    options.headers['Authorization'] = `Bearer ${authToken}`;
+                }
+            }
+            return _originalFetch.call(this, url, options);
+        };
+
         // Load public config from server (title, agents, feature flags)
         let mcConfig = { title: 'Mission Control', agents: [], kanbanEnabled: true, vpsEnabled: false };
         async function loadMCConfig() {
@@ -1387,8 +1405,8 @@
                                 Modified: ${new Date(doc.modified).toLocaleString()}
                             </div>
                             <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;" onclick="event.stopPropagation()">
-                                <button onclick="renameDocument('${escapeHtml(doc.name)}')" style="background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border); padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 0.75rem;">✏️ Rename</button>
-                                <button onclick="deleteDocument('${escapeHtml(doc.name)}')" style="background: var(--bg-tertiary); color: var(--accent-red); border: 1px solid var(--border); padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 0.75rem;">🗑️ Delete</button>
+                                <button onclick="renameDocument(${escapeHtml(JSON.stringify(doc.name))})" style="background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 0.75rem;">✏️ Rename</button>
+                                <button onclick="deleteDocument(${escapeHtml(JSON.stringify(doc.name))})" style="background: var(--bg-secondary); color: var(--accent-red); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 0.75rem;">🗑️ Delete</button>
                             </div>
                         </div>
                     </div>
@@ -1690,8 +1708,10 @@
         const MAX_FEED_ITEMS = 200;
 
         function connectWebSocket() {
+            if (!authToken) return; // Don't connect without auth
             const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${location.host}/ws/events`);
+            const basePath = getBasePath();
+            ws = new WebSocket(`${protocol}//${location.host}${basePath}/ws/events?token=${encodeURIComponent(authToken)}`);
 
             ws.onopen = () => {
                 document.getElementById('ws-status-dot').style.background = 'var(--accent-green)';
@@ -2263,12 +2283,21 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ pin })
                 });
+                if (res.status === 429) {
+                    document.getElementById('login-error').textContent = 'Too many attempts. Try again later.';
+                    document.getElementById('login-error').style.display = 'block';
+                    return;
+                }
                 const data = await res.json();
-                if (data.success) {
+                if (data.success && data.token) {
+                    authToken = data.token;
+                    sessionStorage.setItem('mc_token', authToken);
                     sessionStorage.setItem('mc_authenticated', 'true');
                     document.getElementById('login-overlay').classList.add('hidden');
                     document.getElementById('login-error').style.display = 'none';
+                    connectWebSocket(); // reconnect with auth token
                 } else {
+                    document.getElementById('login-error').textContent = 'Incorrect PIN';
                     document.getElementById('login-error').style.display = 'block';
                     document.getElementById('pin-input').value = '';
                     document.getElementById('pin-input').focus();
@@ -2278,16 +2307,40 @@
                 document.getElementById('login-error').style.display = 'block';
             }
         }
-        
+
         function logout() {
+            authToken = '';
+            sessionStorage.removeItem('mc_token');
             sessionStorage.removeItem('mc_authenticated');
             document.getElementById('login-overlay').classList.remove('hidden');
             document.getElementById('pin-input').value = '';
+            if (ws) ws.close();
         }
-        
-        // Check auth on load
-        if (sessionStorage.getItem('mc_authenticated') === 'true') {
-            document.getElementById('login-overlay').classList.add('hidden');
+
+        // Validate existing session on load (token may have expired server-side)
+        async function validateSession() {
+            if (!authToken) return false;
+            try {
+                const res = await fetch(`${getBasePath()}/api/notifications`);
+                if (res.status === 401) {
+                    authToken = '';
+                    sessionStorage.removeItem('mc_token');
+                    sessionStorage.removeItem('mc_authenticated');
+                    return false;
+                }
+                return true;
+            } catch { return false; }
+        }
+
+        if (sessionStorage.getItem('mc_authenticated') === 'true' && authToken) {
+            validateSession().then(valid => {
+                if (valid) {
+                    document.getElementById('login-overlay').classList.add('hidden');
+                } else {
+                    document.getElementById('login-overlay').classList.remove('hidden');
+                    document.getElementById('pin-input').focus();
+                }
+            });
         }
         
         // Handle enter key on PIN input
