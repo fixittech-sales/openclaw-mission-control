@@ -1,0 +1,2305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mission Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Login Screen */
+        .login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #0a0f1c 0%, #1a1a2e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .login-overlay.hidden { display: none; }
+        .login-box {
+            background: #1a2234;
+            border: 1px solid #374151;
+            border-radius: 16px;
+            padding: 3rem;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            max-width: 400px;
+            width: 90%;
+        }
+        .login-box h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .login-box p { color: #9ca3af; margin-bottom: 2rem; }
+        .pin-input {
+            width: 100%;
+            padding: 1rem;
+            font-size: 2rem;
+            text-align: center;
+            letter-spacing: 1rem;
+            background: #0a0f1c;
+            border: 2px solid #374151;
+            border-radius: 8px;
+            color: #f3f4f6;
+            margin-bottom: 1rem;
+        }
+        .pin-input:focus { outline: none; border-color: #3b82f6; }
+        .login-btn {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+        .login-btn:hover { transform: translateY(-2px); opacity: 0.9; }
+        .login-error { color: #ef4444; margin-top: 1rem; display: none; }
+        .logout-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            margin-left: 1rem;
+        }
+        .logout-btn:hover { background: #dc2626; }
+        
+        :root {
+            --bg-primary: #0a0f1c;
+            --bg-secondary: #111827;
+            --bg-card: #1a2234;
+            --bg-card-hover: #1f2937;
+            --accent-blue: #3b82f6;
+            --accent-blue-dim: #1e40af;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --accent-red: #ef4444;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --border-color: #374151;
+            --glow-blue: rgba(59, 130, 246, 0.15);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Navigation */
+        .nav-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 1rem 2rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .nav-tab {
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .nav-tab:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+        
+        .nav-tab.active {
+            background: var(--accent-blue-dim);
+            color: var(--text-primary);
+        }
+        
+        /* Main Content */
+        .main {
+            padding: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.2s;
+        }
+        
+        .card:hover {
+            border-color: var(--accent-blue-dim);
+            box-shadow: 0 0 30px var(--glow-blue);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .card-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .card-icon {
+            font-size: 1.2rem;
+        }
+        
+        .card-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .card-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        
+        /* Status Badge */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .badge-green { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .badge-yellow { background: rgba(245, 158, 11, 0.2); color: var(--accent-yellow); }
+        .badge-red { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+        .badge-blue { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); }
+        
+        /* Kanban Board */
+        .kanban-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+        
+        .kanban-column {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1rem;
+            height: 350px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .kanban-column > div:last-child {
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .column-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        
+        .column-count {
+            background: var(--bg-secondary);
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        
+        .task-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .task-card:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-2px);
+        }
+        
+        .task-title {
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .task-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        
+        /* Activity Feed */
+        .activity-feed {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .activity-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+        
+        .activity-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            margin-top: 6px;
+            flex-shrink: 0;
+        }
+        
+        .activity-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        
+        .activity-time {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        
+        /* Cron Jobs Table */
+        .cron-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .cron-table th,
+        .cron-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .cron-table th {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+        
+        .cron-table td {
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+        
+        /* Section Headers */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        
+        /* Add Task Button */
+        .add-task-btn {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .add-task-btn:hover {
+            background: var(--accent-blue-dim);
+        }
+        
+        /* Add Task Input */
+        .add-task-input {
+            width: 100%;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        
+        .add-task-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+        
+        /* Tabs Content */
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .kanban-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .kanban-column {
+                min-height: auto;
+            }
+        }
+        
+        /* Agent Hub */
+        .agent-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .agent-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 0.75rem;
+        }
+        
+        .agent-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        
+        .agent-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .agent-role {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        
+        .agent-status {
+            margin-left: auto;
+        }
+
+        /* Live Feed */
+        .feed-event {
+            padding: 8px 14px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            font-size: 0.85rem;
+        }
+        .feed-event:hover {
+            background: var(--bg-card-hover);
+        }
+        .feed-ts {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            white-space: nowrap;
+            min-width: 70px;
+            font-family: 'SF Mono', 'Menlo', monospace;
+        }
+        .feed-badge {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .feed-badge-started { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); }
+        .feed-badge-running { background: rgba(245, 158, 11, 0.2); color: var(--accent-yellow); }
+        .feed-badge-done    { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .feed-badge-pending { background: rgba(107, 114, 128, 0.2); color: var(--text-muted); }
+        .feed-badge-advanced { background: rgba(6, 182, 212, 0.2); color: var(--accent-cyan); }
+        .feed-badge-spawn  { background: rgba(168, 85, 247, 0.2); color: #a855f7; }
+        .feed-badge-send   { background: rgba(236, 72, 153, 0.2); color: #ec4899; }
+        .feed-badge-error  { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+
+        /* Agent Chat */
+        .chat-container { display: flex; flex-direction: column; height: 600px; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+        .chat-msg { max-width: 80%; padding: 0.75rem 1rem; border-radius: 12px; font-size: 0.9rem; line-height: 1.5; word-break: break-word; }
+        .chat-msg.user { align-self: flex-end; background: var(--accent-blue-dim); color: var(--text-primary); border-bottom-right-radius: 4px; }
+        .chat-msg.agent { align-self: flex-start; background: var(--bg-secondary); border: 1px solid var(--border-color); border-bottom-left-radius: 4px; }
+        .chat-msg .chat-meta { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.25rem; }
+        .chat-input-row { display: flex; gap: 0.5rem; padding: 1rem; border-top: 1px solid var(--border-color); }
+        .chat-input-row input { flex: 1; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px; color: var(--text-primary); font-size: 0.9rem; }
+        .chat-input-row input:focus { outline: none; border-color: var(--accent-blue); }
+        .chat-input-row select { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; color: var(--text-primary); font-size: 0.85rem; }
+        .chat-send-btn { background: var(--accent-blue); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+        .chat-send-btn:hover { background: var(--accent-blue-dim); }
+        .chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Session Explorer */
+        .session-card { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem; display: flex; justify-content: space-between; align-items: center; }
+        .session-card:hover { border-color: var(--accent-blue-dim); }
+        .session-agent { font-weight: 600; color: var(--text-primary); }
+        .session-model { font-size: 0.8rem; color: var(--accent-cyan); }
+        .session-tokens { font-size: 0.85rem; color: var(--text-secondary); font-family: 'SF Mono', monospace; }
+
+        /* Memory Search */
+        .search-bar { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+        .search-bar input { flex: 1; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px; color: var(--text-primary); font-size: 0.9rem; }
+        .search-bar input:focus { outline: none; border-color: var(--accent-blue); }
+        .search-bar button { background: var(--accent-blue); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+        .memory-result { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; }
+        .memory-result:hover { border-color: var(--accent-blue-dim); }
+        .memory-result-source { font-size: 0.75rem; color: var(--accent-cyan); margin-bottom: 0.35rem; font-family: 'SF Mono', monospace; }
+        .memory-result-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; }
+        .memory-result-score { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.35rem; }
+
+        /* Notifications */
+        .notif-item { display: flex; gap: 12px; padding: 1rem; border-bottom: 1px solid var(--border-color); align-items: flex-start; }
+        .notif-item:last-child { border-bottom: none; }
+        .notif-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 2px; }
+        .notif-title { font-weight: 600; color: var(--text-primary); font-size: 0.9rem; }
+        .notif-detail { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem; line-height: 1.4; }
+        .notif-time { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.25rem; }
+        .notif-critical { border-left: 3px solid var(--accent-red); }
+        .notif-warning { border-left: 3px solid var(--accent-yellow); }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .header { padding: 0.75rem 1rem; }
+            .logo-text { font-size: 1.1rem; }
+            .nav-tabs { overflow-x: auto; padding: 0.75rem 1rem; flex-wrap: nowrap; }
+            .nav-tab { white-space: nowrap; padding: 8px 12px; font-size: 0.8rem; }
+            .main { padding: 1rem; }
+            .dashboard-grid { grid-template-columns: 1fr; }
+            .card[style*="grid-column: span 2"] { grid-column: span 1 !important; }
+            .chat-container { height: 500px; }
+            .chat-msg { max-width: 90%; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Overlay -->
+    <div id="login-overlay" class="login-overlay">
+        <div class="login-box">
+            <h1>🎯 Mission Control</h1>
+            <p>Enter your PIN to access</p>
+            <input type="password" id="pin-input" class="pin-input" maxlength="4" placeholder="••••" autocomplete="off">
+            <button class="login-btn" onclick="checkPin()">Access Dashboard</button>
+            <div id="login-error" class="login-error">Incorrect PIN. Try again.</div>
+        </div>
+    </div>
+    
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">🎯</div>
+            <span class="logo-text">Mission Control</span>
+        </div>
+        <div style="display: flex; align-items: center;">
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span id="connection-status">Connected</span>
+            </div>
+            <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+        </div>
+    </header>
+    
+    <nav class="nav-tabs">
+        <button class="nav-tab active" data-tab="dashboard">📊 Dashboard</button>
+        <button class="nav-tab" data-tab="workshop">🛠️ Workshop</button>
+        <button class="nav-tab" data-tab="documents">📄 Documents</button>
+        <button class="nav-tab" data-tab="cron">⏰ Cron Jobs</button>
+        <button class="nav-tab" data-tab="agents">🤖 Agent Hub</button>
+        <button class="nav-tab" data-tab="sessions">💬 Sessions</button>
+        <button class="nav-tab" data-tab="memory-search">🧠 Memory</button>
+        <button class="nav-tab" data-tab="activity">📜 Activity</button>
+        <button class="nav-tab" data-tab="sms-log">📱 SMS Log</button>
+        <span id="notification-bell" onclick="toggleNotifications()" style="cursor: pointer; position: relative; font-size: 1.2rem; padding: 0.5rem; margin-left: auto;">🔔<span id="notif-badge" style="display:none; position:absolute; top:2px; right:0; background:var(--accent-red); color:white; font-size:0.6rem; border-radius:50%; width:16px; height:16px; text-align:center; line-height:16px;"></span></span>
+    </nav>
+    
+    <main class="main">
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content active">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Agent Status</span>
+                        <span class="card-icon">🤖</span>
+                    </div>
+                    <div class="card-value" id="agent-status">Online</div>
+                    <div class="card-subtitle" id="agent-model">Loading...</div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Tasks in Queue</span>
+                        <span class="card-icon">📋</span>
+                    </div>
+                    <div class="card-value" id="tasks-count">0</div>
+                    <div class="card-subtitle" id="tasks-subtitle">Ready to work</div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Next Heartbeat</span>
+                        <span class="card-icon">💓</span>
+                    </div>
+                    <div class="card-value" id="next-heartbeat">--:--</div>
+                    <div class="card-subtitle">Every 5 minutes</div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Cron Jobs Active</span>
+                        <span class="card-icon">⏰</span>
+                    </div>
+                    <div class="card-value" id="cron-count">0</div>
+                    <div class="card-subtitle">Scheduled tasks</div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">External IP</span>
+                        <span style="background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%); color: white; padding: 4px 12px; border-radius: 6px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.5px;">REM</span>
+                    </div>
+                    <div class="card-value" id="external-ip" style="font-size: 1.4rem; font-family: monospace;">Loading...</div>
+                    <div class="card-subtitle" id="external-ip-updated">--</div>
+                </div>
+                
+                <!-- Model Usage Tracker -->
+                <div class="card" style="grid-column: span 2;">
+                    <div class="card-header">
+                        <span class="card-title">Model Usage</span>
+                        <span class="card-icon">🚀</span>
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem;">
+                            <div>
+                                <span style="font-size: 1.8rem; font-weight: 700; color: var(--text-primary);" id="usage-total-tokens">0</span>
+                                <span style="font-size: 0.85rem; color: var(--text-muted); margin-left: 0.25rem;">tokens</span>
+                            </div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">
+                                <span id="usage-total-sessions">0</span> sessions
+                            </div>
+                        </div>
+                        <div id="usage-model-bars" style="display: flex; flex-direction: column; gap: 0.6rem;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cron Health Alerts -->
+            <div id="cron-alerts" style="display: none; margin-bottom: 1rem;"></div>
+
+            <!-- System Health + Quick Actions + Gateway -->
+            <div class="dashboard-grid" style="margin-bottom: 1.5rem;">
+                <!-- System Health -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">System Health</span>
+                        <span class="card-icon">💻</span>
+                    </div>
+                    <div style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 3px;">
+                                <span style="color: var(--text-secondary);">CPU</span>
+                                <span id="sys-cpu-val" style="color: var(--text-muted);">--</span>
+                            </div>
+                            <div style="width:100%; height:6px; background:var(--bg-primary); border-radius:3px; overflow:hidden;">
+                                <div id="sys-cpu-bar" style="height:100%; width:0%; background:#6366f1; border-radius:3px; transition:width 0.3s;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 3px;">
+                                <span style="color: var(--text-secondary);">Memory</span>
+                                <span id="sys-mem-val" style="color: var(--text-muted);">--</span>
+                            </div>
+                            <div style="width:100%; height:6px; background:var(--bg-primary); border-radius:3px; overflow:hidden;">
+                                <div id="sys-mem-bar" style="height:100%; width:0%; background:#06b6d4; border-radius:3px; transition:width 0.3s;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 3px;">
+                                <span style="color: var(--text-secondary);">Disk</span>
+                                <span id="sys-disk-val" style="color: var(--text-muted);">--</span>
+                            </div>
+                            <div style="width:100%; height:6px; background:var(--bg-primary); border-radius:3px; overflow:hidden;">
+                                <div id="sys-disk-bar" style="height:100%; width:0%; background:#10b981; border-radius:3px; transition:width 0.3s;"></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+                            Load: <span id="sys-load">--</span> · Uptime: <span id="sys-uptime">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Quick Actions</span>
+                        <span class="card-icon">⚡</span>
+                    </div>
+                    <div style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                        <button onclick="restartGateway()" style="background: var(--accent-red); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500;">🔄 Restart Gateway</button>
+                        <button onclick="reindexMemory()" style="background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">🧠 Reindex Memory</button>
+                        <button onclick="switchTab('agent-chat')" style="background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">💬 Chat with Agent</button>
+                        <div id="quick-action-status" style="font-size: 0.8rem; color: var(--text-muted); min-height: 1.2em;"></div>
+                    </div>
+                </div>
+
+                <!-- Gateway Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Gateway</span>
+                        <span class="card-icon">🌐</span>
+                    </div>
+                    <div style="margin-top: 0.75rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                            <div id="gw-status-dot" style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent-green);"></div>
+                            <span id="gw-status-text" style="font-size: 1rem; font-weight: 600; color: var(--text-primary);">Checking...</span>
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.35rem;">
+                            <div>Uptime: <span id="gw-uptime" style="color: var(--text-secondary);">--</span></div>
+                            <div>Started: <span id="gw-started" style="color: var(--text-secondary);">--</span></div>
+                            <div>Port: <span style="color: var(--text-secondary);">18789</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Agent Timeline -->
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <div class="card-header">
+                    <span class="card-title">Agent Activity (24h)</span>
+                    <span class="card-icon">📈</span>
+                </div>
+                <div id="agent-timeline" style="margin-top: 0.75rem; overflow-x: auto;"></div>
+            </div>
+
+            <div class="section-header">
+                <h2 class="section-title">Recent Activity</h2>
+            </div>
+
+            <div class="activity-feed" id="activity-feed">
+                <div class="activity-item">
+                    <div class="activity-dot"></div>
+                    <div>
+                        <div class="activity-text">Loading activity...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Workshop Tab -->
+        <div id="workshop" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">Workshop</h2>
+                <button class="add-task-btn" onclick="showAddTask()">+ Add Task</button>
+            </div>
+            
+            <div id="add-task-form" style="display: none; margin-bottom: 1rem;">
+                <input type="text" class="add-task-input" id="new-task-input" placeholder="Enter task description...">
+                <button class="add-task-btn" onclick="addTask()">Create Task</button>
+            </div>
+            
+            <div class="kanban-container">
+                <div class="kanban-column">
+                    <div class="column-header">
+                        <span class="column-title">📝 To Do</span>
+                        <span class="column-count" id="todo-count">0</span>
+                    </div>
+                    <div id="todo-tasks"></div>
+                </div>
+                
+                <div class="kanban-column">
+                    <div class="column-header">
+                        <span class="column-title">🔄 In Progress</span>
+                        <span class="column-count" id="inprogress-count">0</span>
+                    </div>
+                    <div id="inprogress-tasks"></div>
+                </div>
+                
+                <div class="kanban-column">
+                    <div class="column-header">
+                        <span class="column-title">✅ Done</span>
+                        <span class="column-count" id="done-count">0</span>
+                    </div>
+                    <div id="done-tasks"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Cron Jobs Tab -->
+        <div id="cron" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">Scheduled Jobs</h2>
+            </div>
+            
+            <div class="card">
+                <table class="cron-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Schedule</th>
+                            <th>Status</th>
+                            <th>Last Run</th>
+                            <th>Next Run</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cron-jobs">
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: var(--text-muted);">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Agent Hub Tab -->
+        <div id="agents" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">Agent Hub</h2>
+                <span id="agents-count" class="badge badge-blue">0 agents</span>
+            </div>
+
+            <h3 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">Core Agents</h3>
+            <div class="dashboard-grid" id="core-agents-grid">
+                <p style="color: var(--text-muted);">Loading agents...</p>
+            </div>
+
+            <details style="margin-top: 1.5rem;">
+                <summary style="color: var(--text-secondary); cursor: pointer; font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Workflow Agents (<span id="workflow-agents-count">0</span>)
+                </summary>
+                <div class="dashboard-grid" id="workflow-agents-grid" style="margin-top: 1rem;">
+                </div>
+            </details>
+
+            <div class="section-header" style="margin-top: 2rem;">
+                <h2 class="section-title">Active Runs</h2>
+            </div>
+            <div id="active-runs" class="card" style="padding: 0; overflow: hidden;">
+                <p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">Loading...</p>
+            </div>
+
+            <div class="section-header" style="margin-top: 2rem;">
+                <h2 class="section-title">Live Feed</h2>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <div id="ws-status-dot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent-red); animation: pulse 2s infinite;"></div>
+                    <span id="ws-status-text" style="font-size: 0.8rem; color: var(--text-muted);">Connecting...</span>
+                    <button onclick="clearFeed()" class="add-task-btn" style="font-size: 0.75rem; padding: 4px 10px;">Clear</button>
+                </div>
+            </div>
+            <div id="live-feed" class="activity-feed" style="max-height: 500px; overflow-y: auto; padding: 0;">
+                <p class="feed-placeholder" style="color: var(--text-muted); text-align: center; padding: 2rem;">Connecting to event stream...</p>
+            </div>
+        </div>
+        
+        <!-- Documents Tab -->
+        <div id="documents" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">📄 Documents Library</h2>
+                <span style="color: var(--text-muted); font-size: 0.85rem;">Research, reports, and generated content</span>
+            </div>
+            
+            <!-- Upload Section -->
+            <div class="card" style="margin-bottom: 1.5rem; padding: 1rem;">
+                <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                    <input type="file" id="doc-upload-input" accept=".pdf,.txt,.md,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx" style="display: none;">
+                    <button onclick="document.getElementById('doc-upload-input').click()" class="btn" style="background: var(--accent); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;">
+                        📤 Upload Document
+                    </button>
+                    <span id="upload-status" style="color: var(--text-muted); font-size: 0.85rem;"></span>
+                </div>
+            </div>
+            
+            <div class="dashboard-grid" id="documents-grid">
+                <div class="card" style="text-align: center; padding: 3rem;">
+                    <div style="color: var(--text-muted);">Loading documents...</div>
+                </div>
+            </div>
+            
+            <!-- Document Viewer Modal -->
+            <div id="doc-viewer" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 1000; padding: 2rem; overflow-y: auto;">
+                <div style="max-width: 900px; margin: 0 auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3 id="doc-viewer-title" style="color: var(--text-primary);"></h3>
+                        <button onclick="closeDocViewer()" style="background: var(--accent-red); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer;">Close</button>
+                    </div>
+                    <div id="doc-viewer-content" style="background: var(--bg-card); border-radius: 12px; padding: 2rem; color: var(--text-primary); line-height: 1.7;">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Activity Tab -->
+        <div id="activity" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">Activity Log</h2>
+            </div>
+            
+            <div class="activity-feed" id="full-activity-feed" style="max-height: none;">
+                <div class="activity-item">
+                    <div class="activity-dot"></div>
+                    <div>
+                        <div class="activity-text">Loading activity...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SMS Log Tab -->
+        <div id="sms-log" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">📱 SMS Message Log</h2>
+            </div>
+
+            <div class="sms-log-container" style="display: flex; flex-direction: column; gap: 10px;">
+                <div id="sms-messages" style="display: flex; flex-direction: column; gap: 8px;">
+                    <p style="color: var(--text-muted);">Loading SMS messages...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agent Chat Tab -->
+        <div id="agent-chat" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">💬 Agent Chat</h2>
+            </div>
+            <div class="card chat-container">
+                <div id="chat-messages" class="chat-messages">
+                    <div style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                        Select an agent and send a message to start a conversation.
+                    </div>
+                </div>
+                <div class="chat-input-row">
+                    <select id="chat-agent-select">
+                        <option value="main">Main</option>
+                        <option value="ops">Ops (Roxy)</option>
+                        <option value="comms">Comms (Nina)</option>
+                        <option value="architect">Architect</option>
+                    </select>
+                    <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
+                    <button class="chat-send-btn" id="chat-send-btn" onclick="sendAgentChat()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sessions Tab -->
+        <div id="sessions" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">💬 Session Explorer</h2>
+                <span id="sessions-total" class="badge badge-blue">0 sessions</span>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                <div class="card" style="flex: 1; min-width: 120px; text-align: center;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Total Tokens</div>
+                    <div id="sessions-total-tokens" style="font-size: 1.4rem; font-weight: 700; margin-top: 0.25rem;">--</div>
+                </div>
+                <div class="card" style="flex: 1; min-width: 120px; text-align: center;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Input</div>
+                    <div id="sessions-input-tokens" style="font-size: 1.4rem; font-weight: 700; color: var(--accent-cyan); margin-top: 0.25rem;">--</div>
+                </div>
+                <div class="card" style="flex: 1; min-width: 120px; text-align: center;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Output</div>
+                    <div id="sessions-output-tokens" style="font-size: 1.4rem; font-weight: 700; color: var(--accent-green); margin-top: 0.25rem;">--</div>
+                </div>
+            </div>
+            <div id="sessions-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <p style="color: var(--text-muted); text-align: center; padding: 2rem;">Loading sessions...</p>
+            </div>
+        </div>
+
+        <!-- Memory Search Tab -->
+        <div id="memory-search" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">🧠 Memory Search</h2>
+            </div>
+            <div class="search-bar">
+                <input type="text" id="memory-query" placeholder="Search agent memory..." autocomplete="off">
+                <select id="memory-agent-select" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; color: var(--text-primary);">
+                    <option value="">All Agents</option>
+                    <option value="main">Main</option>
+                    <option value="ops">Ops</option>
+                    <option value="comms">Comms</option>
+                    <option value="architect">Architect</option>
+                </select>
+                <button onclick="searchMemory()" style="background: var(--accent-blue); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500;">Search</button>
+            </div>
+            <div id="memory-results">
+                <div style="text-align: center; color: var(--text-muted); padding: 3rem;">
+                    Enter a search query to search across agent memories.
+                </div>
+            </div>
+        </div>
+
+        <!-- Notifications Tab -->
+        <div id="notifications" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">🔔 Notifications</h2>
+                <span id="notif-total-count" class="badge badge-blue">0</span>
+            </div>
+            <div class="card" style="padding: 0; overflow: hidden;">
+                <div id="notifications-list">
+                    <p style="color: var(--text-muted); text-align: center; padding: 2rem;">Loading notifications...</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+    
+    <script>
+        // Tab Navigation
+        function switchTab(tabName) {
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            const tabBtn = document.querySelector(`.nav-tab[data-tab="${tabName}"]`);
+            if (tabBtn) tabBtn.classList.add('active');
+            const tabContent = document.getElementById(tabName);
+            if (tabContent) tabContent.classList.add('active');
+            history.replaceState(null, '', '#' + tabName);
+            window.scrollTo({ top: 0, behavior: 'instant' });
+
+            if (tabName === 'dashboard' || tabName === 'workshop') loadDashboard();
+            else if (tabName === 'cron') loadDashboard();
+            else if (tabName === 'documents') loadDocuments();
+            else if (tabName === 'sms-log') loadSMSLog();
+            else if (tabName === 'agents') loadAgentRoster();
+            else if (tabName === 'sessions') loadSessions();
+            else if (tabName === 'memory-search') { /* ready for input */ }
+            else if (tabName === 'notifications') loadNotifications();
+            else if (tabName === 'agent-chat') { /* ready for input */ }
+        }
+
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+        });
+
+        // Restore tab from URL hash on load
+        const hashTab = location.hash.replace('#', '');
+        if (hashTab && document.getElementById(hashTab)) {
+            switchTab(hashTab);
+        }
+        
+        // Load data
+        async function loadDashboard() {
+            try {
+                // Load tasks
+                const tasksRes = await fetch(`${getBasePath()}/api/tasks`);
+                const tasks = await tasksRes.json();
+                
+                const todoCount = tasks.todo?.length || 0;
+                const inprogressCount = tasks.inprogress?.length || 0;
+                const doneCount = tasks.done?.length || 0;
+                
+                document.getElementById('tasks-count').textContent = todoCount + inprogressCount;
+                document.getElementById('tasks-subtitle').textContent = `${inprogressCount} in progress`;
+                
+                document.getElementById('todo-count').textContent = todoCount;
+                document.getElementById('inprogress-count').textContent = inprogressCount;
+                document.getElementById('done-count').textContent = doneCount;
+                
+                // Render tasks
+                renderTasks('todo-tasks', tasks.todo || []);
+                renderTasks('inprogress-tasks', tasks.inprogress || []);
+                renderTasks('done-tasks', (tasks.done || []).slice(0, 10));
+                
+            } catch (err) {
+                console.error('Failed to load tasks:', err);
+            }
+            
+            try {
+                // Load agent status
+                const basePath = getBasePath();
+                const statusRes = await fetch(`${basePath}/api/status`);
+                const statusData = await statusRes.json();
+                if (statusData.agents) {
+                    const active = statusData.agents.agents.filter(a => a.lastActiveAgeMs !== null && a.lastActiveAgeMs < 3600000);
+                    const total = statusData.agents.agents.length;
+                    document.getElementById('agent-status').textContent = statusData.gateway?.reachable ? 'Online' : 'Offline';
+                    document.getElementById('agent-model').textContent = `${active.length} active / ${total} agents`;
+                } else {
+                    document.getElementById('agent-model').textContent = statusData.raw ? 'Connected' : 'Unknown';
+                }
+            } catch (err) {
+                document.getElementById('agent-model').textContent = 'Connection error';
+            }
+
+            try {
+                // Load activity
+                const activityRes = await fetch(`${getBasePath()}/api/activity`);
+                const activityData = await activityRes.json();
+                renderActivity(activityData.activity || []);
+            } catch (err) {
+                console.error('Failed to load activity:', err);
+            }
+            
+            try {
+                // Load cron jobs
+                const cronRes = await fetch(`${getBasePath()}/api/cron`);
+                const cronData = await cronRes.json();
+                document.getElementById('cron-count').textContent = cronData.jobs?.length || 0;
+                renderCronJobs(cronData.jobs || []);
+            } catch (err) {
+                console.error('Failed to load cron:', err);
+            }
+            
+            try {
+                // Load external IP
+                const ipRes = await fetch(`${getBasePath()}/api/external-ip`);
+                const ipData = await ipRes.json();
+                if (ipData.ip) {
+                    document.getElementById('external-ip').textContent = ipData.ip;
+                    const updated = new Date(ipData.timestamp);
+                    document.getElementById('external-ip-updated').textContent = 
+                        `Updated ${updated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+                } else {
+                    document.getElementById('external-ip').textContent = 'Unavailable';
+                    document.getElementById('external-ip-updated').textContent = 'Could not detect external IP';
+                }
+            } catch (err) {
+                console.error('Failed to load external IP:', err);
+                document.getElementById('external-ip').textContent = 'Unavailable';
+                document.getElementById('external-ip-updated').textContent = 'No internet or service unreachable';
+            }
+            
+            // Update heartbeat countdown
+            updateHeartbeat();
+        }
+        
+        function renderTasks(containerId, tasks) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = tasks.map(task => `
+                <div class="task-card" data-id="${task.id}">
+                    <div class="task-title">${escapeHtml(task.title)}</div>
+                    <div class="task-meta">${formatDate(task.created)}</div>
+                </div>
+            `).join('') || '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">No tasks</p>';
+        }
+        
+        function renderActivity(activities) {
+            const feed = document.getElementById('activity-feed');
+            const fullFeed = document.getElementById('full-activity-feed');
+            
+            const html = activities.slice(0, 10).map(a => {
+                const parts = a.split(' ');
+                const time = parts[0];
+                const text = parts.slice(1).join(' ');
+                return `
+                    <div class="activity-item">
+                        <div class="activity-dot"></div>
+                        <div>
+                            <div class="activity-text">${escapeHtml(text)}</div>
+                            <div class="activity-time">${time}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('') || '<p style="color: var(--text-muted);">No recent activity</p>';
+            
+            feed.innerHTML = html;
+            fullFeed.innerHTML = activities.map(a => {
+                const parts = a.split(' ');
+                const time = parts[0];
+                const text = parts.slice(1).join(' ');
+                return `
+                    <div class="activity-item">
+                        <div class="activity-dot"></div>
+                        <div>
+                            <div class="activity-text">${escapeHtml(text)}</div>
+                            <div class="activity-time">${time}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('') || '<p style="color: var(--text-muted);">No activity</p>';
+        }
+        
+        function renderCronJobs(jobs) {
+            const tbody = document.getElementById('cron-jobs');
+            if (!jobs.length) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No scheduled jobs</td></tr>';
+                return;
+            }
+            tbody.innerHTML = jobs.map(job => {
+                const lastRun = job.state?.lastRunAtMs ? new Date(job.state.lastRunAtMs).toLocaleString() : (job.lastRun ? formatDate(job.lastRun) : '--');
+                const nextRun = job.state?.nextRunAtMs ? new Date(job.state.nextRunAtMs).toLocaleString() : '--';
+                const nextMs = job.state?.nextRunAtMs ? job.state.nextRunAtMs - Date.now() : null;
+                const nextLabel = nextMs !== null && nextMs > 0 ? (nextMs < 60000 ? '<1m' : Math.round(nextMs / 60000) + 'm') : '';
+                return `<tr>
+                    <td>${escapeHtml(job.name || job.id || 'Unnamed')}</td>
+                    <td><code style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px;">${escapeHtml(job.schedule?.expr || job.schedule?.kind || '--')}</code></td>
+                    <td><span class="badge ${job.enabled !== false ? 'badge-green' : 'badge-red'}">${job.enabled !== false ? 'Active' : 'Disabled'}</span></td>
+                    <td>${lastRun}</td>
+                    <td>${nextRun}${nextLabel ? ` <span style="color: var(--accent-cyan); font-size: 0.8rem;">(in ${nextLabel})</span>` : ''}</td>
+                </tr>`;
+            }).join('');
+        }
+        
+        function updateHeartbeat() {
+            const now = new Date();
+            const next = new Date(now);
+            next.setMinutes(Math.ceil(next.getMinutes() / 5) * 5, 0, 0);
+            
+            const diff = Math.max(0, Math.floor((next - now) / 1000));
+            const mins = Math.floor(diff / 60);
+            const secs = diff % 60;
+            
+            document.getElementById('next-heartbeat').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        function showAddTask() {
+            const form = document.getElementById('add-task-form');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+            document.getElementById('new-task-input').focus();
+        }
+        
+        async function addTask() {
+            const input = document.getElementById('new-task-input');
+            const title = input.value.trim();
+            if (!title) return;
+            
+            await fetch(`${getBasePath()}/api/tasks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title })
+            });
+            
+            input.value = '';
+            document.getElementById('add-task-form').style.display = 'none';
+            loadDashboard();
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function formatDate(dateStr) {
+            if (!dateStr) return '--';
+            const date = new Date(dateStr);
+            return date.toLocaleString();
+        }
+
+        function getBasePath() {
+            return (
+                window.location.pathname === '/mission-control' ||
+                window.location.pathname.startsWith('/mission-control/')
+            ) ? '/mission-control' : '';
+        }
+
+        // Load public config from server (title, agents, feature flags)
+        let mcConfig = { title: 'Mission Control', agents: [], kanbanEnabled: true, vpsEnabled: false };
+        async function loadMCConfig() {
+            try {
+                const res = await fetch(`${getBasePath()}/api/config`);
+                mcConfig = await res.json();
+                document.title = mcConfig.title;
+                document.querySelector('.logo-text').textContent = mcConfig.title;
+                // Populate agent dropdowns
+                const selects = [document.getElementById('chat-agent-select'), document.getElementById('memory-agent-select')];
+                selects.forEach(sel => {
+                    if (!sel || !mcConfig.agents.length) return;
+                    const isMemory = sel.id === 'memory-agent-select';
+                    sel.innerHTML = (isMemory ? '<option value="">All Agents</option>' : '') +
+                        mcConfig.agents.map(a => `<option value="${a}">${a.charAt(0).toUpperCase() + a.slice(1)}</option>`).join('');
+                });
+            } catch (e) {
+                console.warn('Could not load config:', e);
+            }
+        }
+        loadMCConfig();
+        
+        // Load documents
+        async function loadDocuments() {
+            try {
+                const basePath = getBasePath();
+                const res = await fetch(`${basePath}/api/documents`);
+                const data = await res.json();
+                renderDocuments(data.documents || []);
+            } catch (err) {
+                console.error('Failed to load documents:', err);
+            }
+        }
+        
+        function renderDocuments(docs) {
+            const grid = document.getElementById('documents-grid');
+            if (!docs.length) {
+                grid.innerHTML = `
+                    <div class="card" style="text-align: center; padding: 3rem;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">📁</div>
+                        <div style="color: var(--text-muted);">No documents yet</div>
+                        <div style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">Documents will appear here when created</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const getIcon = (type) => {
+                const icons = { pdf: '📕', markdown: '📝', txt: '📄', jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', webp: '🖼️' };
+                return icons[type] || '📁';
+            };
+            const getBadgeClass = (type) => {
+                if (type === 'pdf') return 'badge-red';
+                if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(type)) return 'badge-green';
+                return 'badge-blue';
+            };
+            
+            grid.innerHTML = docs.map(doc => `
+                <div class="card" style="cursor: pointer;" onclick='viewDocument(${JSON.stringify(doc.name)}, ${JSON.stringify(doc.type)})'>
+                    <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                        <div style="font-size: 2.5rem;">${getIcon(doc.type)}</div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">${escapeHtml(doc.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '))}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">
+                                <span class="badge ${getBadgeClass(doc.type)}" style="margin-right: 0.5rem;">${doc.type.toUpperCase()}</span>
+                                ${formatFileSize(doc.size)}
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                Modified: ${new Date(doc.modified).toLocaleString()}
+                            </div>
+                            <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;" onclick="event.stopPropagation()">
+                                <button onclick="renameDocument('${escapeHtml(doc.name)}')" style="background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border); padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 0.75rem;">✏️ Rename</button>
+                                <button onclick="deleteDocument('${escapeHtml(doc.name)}')" style="background: var(--bg-tertiary); color: var(--accent-red); border: 1px solid var(--border); padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 0.75rem;">🗑️ Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        
+        // Document upload handler
+        document.getElementById('doc-upload-input').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const status = document.getElementById('upload-status');
+            status.textContent = `Uploading ${file.name}...`;
+            status.style.color = 'var(--text-muted)';
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const basePath = getBasePath();
+                const res = await fetch(`${basePath}/api/documents/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    status.textContent = `✓ Uploaded ${data.filename}`;
+                    status.style.color = '#34c759';
+                    loadDocuments(); // Refresh the list
+                } else {
+                    status.textContent = `✗ ${data.error || 'Upload failed'}`;
+                    status.style.color = '#ff3b30';
+                }
+            } catch (err) {
+                status.textContent = `✗ Upload error: ${err.message}`;
+                status.style.color = '#ff3b30';
+            }
+            
+            // Clear the input so the same file can be uploaded again
+            e.target.value = '';
+            
+            // Clear status after 5 seconds
+            setTimeout(() => { status.textContent = ''; }, 5000);
+        });
+        
+        async function viewDocument(filename, type) {
+            const basePath = getBasePath();
+            const viewer = document.getElementById('doc-viewer');
+            const title = document.getElementById('doc-viewer-title');
+            const content = document.getElementById('doc-viewer-content');
+            
+            title.textContent = filename.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+            
+            const fileUrl = `${basePath}/documents/${encodeURIComponent(filename)}`;
+            const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(type);
+            const isText = ['markdown', 'txt'].includes(type);
+
+            // PDFs open directly in new tab - no modal needed
+            if (type === 'pdf') {
+                window.open(fileUrl, '_blank');
+                return;
+            }
+            
+            if (isImage) {
+                content.innerHTML = `
+                    <div style="text-align: center;">
+                        <img src="${fileUrl}" alt="${escapeHtml(filename)}" style="max-width: 100%; height: auto; border-radius: 10px;" />
+                        <div style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
+                            <a href="${fileUrl}" target="_blank" style="color: var(--accent-cyan); text-decoration: none;">Open image in new tab</a>
+                            &nbsp;·&nbsp;
+                            <a href="${fileUrl}" download style="color: var(--accent-cyan); text-decoration: none;">Download</a>
+                        </div>
+                    </div>
+                `;
+            } else if (isText) {
+                content.innerHTML = '<div style="text-align: center;">Loading...</div>';
+                try {
+                    const res = await fetch(`${basePath}/api/documents/${encodeURIComponent(filename)}/content`);
+                    const data = await res.json();
+                    content.innerHTML = `<pre style="white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; margin: 0;">${escapeHtml(data.content || '')}</pre>`;
+                } catch (err) {
+                    content.innerHTML = `<div style="color: var(--accent-red);">Failed to load document: ${err.message}</div>`;
+                }
+            } else {
+                content.innerHTML = `
+                    <div style="text-align: center;">
+                        <p style="margin-bottom: 1rem;">This file type can't be previewed here yet.</p>
+                        <a href="${fileUrl}" target="_blank" 
+                           style="display: inline-block; background: var(--accent-blue); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">
+                            ⬇️ Download / Open
+                        </a>
+                    </div>
+                `;
+            }
+            
+            viewer.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeDocViewer() {
+            document.getElementById('doc-viewer').style.display = 'none';
+            document.body.style.overflow = '';
+        }
+        
+        // Close viewer on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeDocViewer();
+        });
+
+        async function renameDocument(filename) {
+            const nameOnly = filename.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+            const newName = prompt('Enter new name:', nameOnly);
+            if (!newName || newName === nameOnly) return;
+            try {
+                const basePath = getBasePath();
+                const res = await fetch(`${basePath}/api/documents/${encodeURIComponent(filename)}/rename`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ newName })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadDocuments();
+                } else {
+                    alert(data.error || 'Rename failed');
+                }
+            } catch (err) {
+                alert('Rename error: ' + err.message);
+            }
+        }
+
+        async function deleteDocument(filename) {
+            const displayName = filename.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+            if (!confirm(`Delete "${displayName}"?`)) return;
+            try {
+                const basePath = getBasePath();
+                const res = await fetch(`${basePath}/api/documents/${encodeURIComponent(filename)}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadDocuments();
+                } else {
+                    alert(data.error || 'Delete failed');
+                }
+            } catch (err) {
+                alert('Delete error: ' + err.message);
+            }
+        }
+        
+        // Load SMS Log
+        async function loadSMSLog() {
+            try {
+                const res = await fetch(`${getBasePath()}/api/sms-log`);
+                const messages = await res.json();
+                renderSMSLog(messages);
+            } catch (err) {
+                console.error('Failed to load SMS log:', err);
+                document.getElementById('sms-messages').innerHTML = '<p style="color: var(--text-muted);">Failed to load SMS messages</p>';
+            }
+        }
+        
+        function renderSMSLog(messages) {
+            const container = document.getElementById('sms-messages');
+            if (!messages.length) {
+                container.innerHTML = '<p style="color: var(--text-muted);">No SMS messages yet</p>';
+                return;
+            }
+            
+            container.innerHTML = messages.map(msg => {
+                const isSent = msg.direction === 'sent';
+                const arrow = isSent ? '➡️' : '⬅️';
+                const bgColor = isSent ? 'rgba(52, 199, 89, 0.1)' : 'rgba(0, 122, 255, 0.1)';
+                const borderColor = isSent ? 'rgba(52, 199, 89, 0.3)' : 'rgba(0, 122, 255, 0.3)';
+                const label = isSent ? 'Sent to' : 'Received from';
+                const time = new Date(msg.timestamp).toLocaleString();
+                
+                return `
+                    <div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 8px; padding: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-weight: 600;">${arrow} ${label}: ${escapeHtml(msg.phone)}</span>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">${time}</span>
+                        </div>
+                        <div style="color: var(--text-primary);">${escapeHtml(msg.message)}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // --- Agent Roster ---
+        async function loadAgentRoster() {
+            try {
+                const res = await fetch(`${getBasePath()}/api/agents`);
+                const data = await res.json();
+                const agents = data.agents || [];
+
+                const coreAgents = agents.filter(a => !a.isWorkflowAgent);
+                const workflowAgents = agents.filter(a => a.isWorkflowAgent);
+
+                document.getElementById('agents-count').textContent = `${agents.length} agents`;
+                document.getElementById('workflow-agents-count').textContent = workflowAgents.length;
+
+                renderAgentCards('core-agents-grid', coreAgents);
+                renderAgentCards('workflow-agents-grid', workflowAgents);
+            } catch (err) {
+                console.error('Failed to load agents:', err);
+            }
+        }
+
+        function renderAgentCards(containerId, agents) {
+            const container = document.getElementById(containerId);
+            if (!agents.length) {
+                container.innerHTML = '<p style="color: var(--text-muted);">No agents</p>';
+                return;
+            }
+            container.innerHTML = agents.map(agent => {
+                const emoji = agent.emoji || (agent.isDefault ? '🎯' : '🤖');
+                const modelShort = (agent.model || '').split('/').pop();
+                const hbBadge = agent.hasHeartbeat
+                    ? `<span class="badge badge-green">HB: ${agent.heartbeatInterval}</span>`
+                    : `<span class="badge badge-blue">Available</span>`;
+                return `
+                    <div class="agent-card">
+                        <div class="agent-header">
+                            <div class="agent-avatar">${emoji}</div>
+                            <div>
+                                <div class="agent-name">${escapeHtml(agent.name)}</div>
+                                <div class="agent-role">${escapeHtml(agent.id)} &middot; ${escapeHtml(modelShort)}</div>
+                            </div>
+                            <div class="agent-status">${hbBadge}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- Active Workflow Runs ---
+        async function loadActiveRuns() {
+            try {
+                const res = await fetch(`${getBasePath()}/api/antfarm/runs`);
+                const data = await res.json();
+                const runs = data.runs || [];
+                const container = document.getElementById('active-runs');
+
+                if (!runs.length) {
+                    container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1.5rem;">No workflow runs</p>';
+                    return;
+                }
+
+                container.innerHTML = runs.map(run => {
+                    const statusColor = run.status === 'running' ? 'var(--accent-yellow)' :
+                                        run.status === 'done' ? 'var(--accent-green)' : 'var(--text-muted)';
+                    const badgeClass = run.status === 'running' ? 'badge-yellow' : run.status === 'done' ? 'badge-green' : 'badge-blue';
+                    const taskShort = (run.task || '').substring(0, 80);
+                    const timeAgo = formatTimeAgo(run.updated_at);
+                    return `
+                        <div style="padding: 12px 14px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="font-weight: 600; color: ${statusColor};">${escapeHtml(run.workflow_id)}</span>
+                                <span style="color: var(--text-muted); margin-left: 8px; font-size: 0.8rem;">${run.id.substring(0, 8)}</span>
+                                <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 4px;">${escapeHtml(taskShort)}</div>
+                            </div>
+                            <div style="text-align: right; flex-shrink: 0;">
+                                <span class="badge ${badgeClass}">${run.status}</span>
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">${timeAgo}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error('Failed to load runs:', err);
+            }
+        }
+
+        function formatTimeAgo(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            if (diffMins < 1) return 'just now';
+            if (diffMins < 60) return `${diffMins}m ago`;
+            const diffHours = Math.floor(diffMins / 60);
+            if (diffHours < 24) return `${diffHours}h ago`;
+            return `${Math.floor(diffHours / 24)}d ago`;
+        }
+
+        // --- WebSocket Live Feed ---
+        let ws = null;
+        const MAX_FEED_ITEMS = 200;
+
+        function connectWebSocket() {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${location.host}/ws/events`);
+
+            ws.onopen = () => {
+                document.getElementById('ws-status-dot').style.background = 'var(--accent-green)';
+                document.getElementById('ws-status-text').textContent = 'Connected';
+            };
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'antfarm_event') {
+                    appendFeedEvent(msg.data, msg.backfill);
+                }
+                if (msg.type === 'agent_comms') {
+                    appendA2AEvent(msg.data, msg.backfill);
+                }
+                if (msg.type === 'backfill_complete') {
+                    const feed = document.getElementById('live-feed');
+                    feed.scrollTop = feed.scrollHeight;
+                }
+            };
+
+            ws.onclose = () => {
+                document.getElementById('ws-status-dot').style.background = 'var(--accent-red)';
+                document.getElementById('ws-status-text').textContent = 'Disconnected';
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = () => ws.close();
+        }
+
+        function appendFeedEvent(evt, isBackfill) {
+            const feed = document.getElementById('live-feed');
+            const placeholder = feed.querySelector('.feed-placeholder');
+            if (placeholder) placeholder.remove();
+
+            const div = document.createElement('div');
+            div.className = 'feed-event';
+
+            const time = new Date(evt.ts);
+            const timeStr = time.toLocaleTimeString('en-US', { hour12: false });
+
+            const badgeMap = {
+                'run.started': 'feed-badge-started',
+                'step.running': 'feed-badge-running',
+                'step.done': 'feed-badge-done',
+                'step.pending': 'feed-badge-pending',
+                'pipeline.advanced': 'feed-badge-advanced'
+            };
+            const badgeClass = badgeMap[evt.event] || 'feed-badge-pending';
+
+            let desc = '';
+            if (evt.event === 'run.started') {
+                desc = `Workflow <b>${escapeHtml(evt.workflowId || '')}</b> started`;
+            } else if (evt.event === 'step.running') {
+                desc = `<b>${escapeHtml(evt.agentId || '?')}</b> running step <b>${escapeHtml(evt.stepId || '')}</b>`;
+            } else if (evt.event === 'step.done') {
+                desc = `Step <b>${escapeHtml(evt.stepId || '')}</b> completed`;
+                if (evt.workflowId) desc += ` (${escapeHtml(evt.workflowId)})`;
+            } else if (evt.event === 'step.pending') {
+                desc = `Step <b>${escapeHtml(evt.stepId || '')}</b> queued`;
+            } else if (evt.event === 'pipeline.advanced') {
+                desc = `Pipeline advanced to <b>${escapeHtml(evt.stepId || '')}</b>`;
+            } else {
+                desc = escapeHtml(evt.event || 'unknown');
+            }
+
+            const label = (evt.event || '').split('.').pop();
+            div.innerHTML = `
+                <span class="feed-ts">${timeStr}</span>
+                <span class="feed-badge ${badgeClass}">${escapeHtml(label)}</span>
+                <span style="color: var(--text-secondary);">${desc}</span>
+            `;
+
+            if (isBackfill) {
+                feed.appendChild(div);
+            } else {
+                feed.prepend(div);
+            }
+
+            while (feed.children.length > MAX_FEED_ITEMS) {
+                feed.removeChild(feed.lastChild);
+            }
+        }
+
+        function appendA2AEvent(evt, isBackfill) {
+            const feed = document.getElementById('live-feed');
+            const placeholder = feed.querySelector('.feed-placeholder');
+            if (placeholder) placeholder.remove();
+
+            const div = document.createElement('div');
+            div.className = 'feed-event';
+
+            const time = new Date(evt.ts);
+            const timeStr = time.toLocaleTimeString('en-US', { hour12: false });
+
+            let badgeClass, label, desc;
+
+            if (evt.event === 'agent.spawn') {
+                badgeClass = 'feed-badge-spawn';
+                label = 'spawn';
+                desc = `<b>${escapeHtml(evt.fromAgent || '?')}</b> spawned`;
+                if (evt.toAgent) desc += ` <b>${escapeHtml(evt.toAgent)}</b>`;
+                if (evt.model) desc += ` (${escapeHtml(evt.model)})`;
+                if (evt.task) desc += `: ${escapeHtml(evt.task.substring(0, 100))}`;
+            } else if (evt.event === 'agent.send') {
+                badgeClass = 'feed-badge-send';
+                label = 'send';
+                desc = `<b>${escapeHtml(evt.fromAgent || '?')}</b> &rarr; <b>${escapeHtml(evt.toAgent || '?')}</b>`;
+                if (evt.message) desc += `: ${escapeHtml(evt.message.substring(0, 100))}`;
+            } else if (evt.event === 'agent.spawn_ok') {
+                badgeClass = 'feed-badge-done';
+                label = 'accepted';
+                desc = `Subagent spawned for <b>${escapeHtml(evt.fromAgent || '?')}</b>`;
+                if (evt.runId) desc += ` <span style="color: var(--text-muted);">(${escapeHtml(evt.runId.substring(0, 8))})</span>`;
+            } else if (evt.event === 'agent.send_ok') {
+                badgeClass = 'feed-badge-done';
+                label = 'delivered';
+                desc = `Message delivered for <b>${escapeHtml(evt.fromAgent || '?')}</b>`;
+            } else if (evt.event === 'agent.error') {
+                badgeClass = 'feed-badge-error';
+                label = 'error';
+                desc = `<b>${escapeHtml(evt.fromAgent || '?')}</b>: ${escapeHtml(evt.error || 'unknown error')}`;
+            } else {
+                badgeClass = 'feed-badge-pending';
+                label = evt.event || 'a2a';
+                desc = escapeHtml(JSON.stringify(evt).substring(0, 120));
+            }
+
+            div.innerHTML = `
+                <span class="feed-ts">${timeStr}</span>
+                <span class="feed-badge ${badgeClass}">${escapeHtml(label)}</span>
+                <span style="color: var(--text-secondary);">${desc}</span>
+            `;
+
+            if (isBackfill) {
+                feed.appendChild(div);
+            } else {
+                feed.prepend(div);
+            }
+
+            while (feed.children.length > MAX_FEED_ITEMS) {
+                feed.removeChild(feed.lastChild);
+            }
+        }
+
+        function clearFeed() {
+            document.getElementById('live-feed').innerHTML =
+                '<p class="feed-placeholder" style="color: var(--text-muted); text-align: center; padding: 2rem;">Feed cleared. New events will appear here.</p>';
+        }
+        
+        // Initial load
+        // Model Usage Tracker
+        function loadModelUsage() {
+            const basePath = getBasePath();
+            fetch(`${basePath}/api/model-usage`)
+                .then(res => res.json())
+                .then(data => {
+                    const fmt = (n) => n >= 1000000 ? (n / 1000000).toFixed(1) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'K' : n;
+                    document.getElementById('usage-total-tokens').textContent = fmt(data.totalTokens);
+                    document.getElementById('usage-total-sessions').textContent = data.totalSessions;
+
+                    const colors = ['#6366f1', '#06b6d4', '#f59e0b', '#ec4899', '#10b981', '#8b5cf6', '#ef4444'];
+                    const container = document.getElementById('usage-model-bars');
+                    const maxTokens = data.models.length ? data.models[0].tokens : 1;
+
+                    container.innerHTML = data.models.filter(m => m.tokens > 0).map((m, i) => {
+                        const pct = Math.max((m.tokens / maxTokens) * 100, 2);
+                        const color = colors[i % colors.length];
+                        return `<div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 3px;">
+                                <span style="color: var(--text-secondary);">${escapeHtml(m.model)}</span>
+                                <span style="color: var(--text-muted);">${fmt(m.tokens)} · ${m.sessions} sessions</span>
+                            </div>
+                            <div style="width: 100%; height: 6px; background: var(--bg-primary); border-radius: 3px; overflow: hidden;">
+                                <div style="height: 100%; width: ${pct}%; background: ${color}; border-radius: 3px; transition: width 0.3s;"></div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                })
+                .catch(err => console.error('Failed to load model usage:', err));
+        }
+        
+        // --- System Health ---
+        function loadSystemHealth() {
+            fetch(`${getBasePath()}/api/system-health`)
+                .then(r => r.json())
+                .then(d => {
+                    document.getElementById('sys-cpu-val').textContent = d.cpu.used + '%';
+                    document.getElementById('sys-cpu-bar').style.width = d.cpu.used + '%';
+                    document.getElementById('sys-cpu-bar').style.background = d.cpu.used > 80 ? 'var(--accent-red)' : '#6366f1';
+
+                    const memPct = d.memory.usedPercent;
+                    document.getElementById('sys-mem-val').textContent = `${d.memory.usedMB}MB / ${d.memory.totalMB}MB (${memPct}%)`;
+                    document.getElementById('sys-mem-bar').style.width = memPct + '%';
+                    document.getElementById('sys-mem-bar').style.background = memPct > 85 ? 'var(--accent-red)' : '#06b6d4';
+
+                    document.getElementById('sys-disk-val').textContent = `${d.disk.used} / ${d.disk.total} (${d.disk.usedPercent}%)`;
+                    document.getElementById('sys-disk-bar').style.width = d.disk.usedPercent + '%';
+                    document.getElementById('sys-disk-bar').style.background = d.disk.usedPercent > 90 ? 'var(--accent-red)' : '#10b981';
+
+                    document.getElementById('sys-load').textContent = `${d.load.avg1} / ${d.load.avg5} / ${d.load.avg15}`;
+                    document.getElementById('sys-uptime').textContent = d.uptime;
+                })
+                .catch(() => {});
+        }
+
+        // --- Gateway Uptime ---
+        function loadGatewayUptime() {
+            fetch(`${getBasePath()}/api/gateway/uptime`)
+                .then(r => r.json())
+                .then(d => {
+                    const dot = document.getElementById('gw-status-dot');
+                    const text = document.getElementById('gw-status-text');
+                    if (d.running) {
+                        dot.style.background = 'var(--accent-green)';
+                        text.textContent = 'Running';
+                        document.getElementById('gw-uptime').textContent = d.elapsed || '--';
+                        document.getElementById('gw-started').textContent = d.startedAt || '--';
+                    } else {
+                        dot.style.background = 'var(--accent-red)';
+                        text.textContent = 'Down';
+                        document.getElementById('gw-uptime').textContent = '--';
+                        document.getElementById('gw-started').textContent = '--';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('gw-status-dot').style.background = 'var(--accent-yellow)';
+                    document.getElementById('gw-status-text').textContent = 'Unknown';
+                });
+        }
+
+        // --- Restart Gateway ---
+        function restartGateway() {
+            if (!confirm('Restart the OpenClaw gateway?')) return;
+            const status = document.getElementById('quick-action-status');
+            status.textContent = 'Restarting gateway...';
+            status.style.color = 'var(--accent-yellow)';
+            fetch(`${getBasePath()}/api/gateway/restart`, { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    status.textContent = d.success ? 'Gateway restarted (' + d.method + ')' : 'Restart failed';
+                    status.style.color = d.success ? 'var(--accent-green)' : 'var(--accent-red)';
+                    setTimeout(() => { status.textContent = ''; }, 5000);
+                    setTimeout(loadGatewayUptime, 3000);
+                })
+                .catch(err => {
+                    status.textContent = 'Error: ' + err.message;
+                    status.style.color = 'var(--accent-red)';
+                });
+        }
+
+        // --- Reindex Memory ---
+        function reindexMemory() {
+            const status = document.getElementById('quick-action-status');
+            status.textContent = 'Reindexing memory...';
+            status.style.color = 'var(--accent-yellow)';
+            fetch(`${getBasePath()}/api/memory/reindex`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+                .then(r => r.json())
+                .then(d => {
+                    status.textContent = d.success ? 'Memory reindexed' : 'Reindex failed';
+                    status.style.color = d.success ? 'var(--accent-green)' : 'var(--accent-red)';
+                    setTimeout(() => { status.textContent = ''; }, 5000);
+                })
+                .catch(err => {
+                    status.textContent = 'Error: ' + err.message;
+                    status.style.color = 'var(--accent-red)';
+                });
+        }
+
+        // --- Agent Timeline ---
+        function loadAgentTimeline() {
+            fetch(`${getBasePath()}/api/agent-timeline`)
+                .then(r => r.json())
+                .then(d => {
+                    const container = document.getElementById('agent-timeline');
+                    if (!d.timeline || !d.timeline.length) {
+                        container.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 1rem;">No activity in the last 24 hours</div>';
+                        return;
+                    }
+                    const colors = { main: '#6366f1', ops: '#06b6d4', comms: '#ec4899', architect: '#f59e0b' };
+                    const nowHour = new Date().getHours();
+                    let html = '<div style="display: flex; flex-direction: column; gap: 0.5rem;">';
+                    d.timeline.forEach(agent => {
+                        const maxVal = Math.max(...agent.hours, 1);
+                        const color = colors[agent.agent] || '#8b5cf6';
+                        html += `<div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <span style="width: 70px; font-size: 0.8rem; color: var(--text-secondary); text-align: right;">${escapeHtml(agent.agent)}</span>
+                            <div style="flex: 1; display: flex; gap: 1px; align-items: flex-end; height: 24px;">`;
+                        for (let h = 0; h < 24; h++) {
+                            const val = agent.hours[h];
+                            const pct = val ? Math.max((val / maxVal) * 100, 8) : 0;
+                            const isNow = h === nowHour;
+                            html += `<div title="${h}:00 - ${val} tokens" style="flex: 1; height: ${pct}%; min-height: ${val ? 2 : 0}px; background: ${val ? color : 'var(--bg-primary)'}; border-radius: 1px; opacity: ${isNow ? 1 : 0.7}; ${isNow ? 'box-shadow: 0 0 4px ' + color : ''}"></div>`;
+                        }
+                        html += `</div><span style="width: 50px; font-size: 0.7rem; color: var(--text-muted);">${agent.totalActivity} sess</span></div>`;
+                    });
+                    // Hour labels
+                    html += '<div style="display: flex; align-items: center; gap: 0.75rem;"><span style="width: 70px;"></span><div style="flex: 1; display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted);">';
+                    for (let h = 0; h < 24; h += 4) html += `<span>${h}:00</span>`;
+                    html += '</div><span style="width: 50px;"></span></div></div>';
+                    container.innerHTML = html;
+                })
+                .catch(() => {});
+        }
+
+        // --- Cron Health Alerts ---
+        function loadCronAlerts() {
+            fetch(`${getBasePath()}/api/notifications`)
+                .then(r => r.json())
+                .then(d => {
+                    const cronErrors = (d.notifications || []).filter(n => n.type === 'cron_error');
+                    const container = document.getElementById('cron-alerts');
+                    if (!cronErrors.length) {
+                        container.style.display = 'none';
+                        return;
+                    }
+                    container.style.display = 'block';
+                    container.innerHTML = cronErrors.map(n => `
+                        <div class="card" style="border-left: 3px solid ${n.severity === 'critical' ? 'var(--accent-red)' : 'var(--accent-yellow)'}; margin-bottom: 0.5rem; padding: 0.75rem 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <span style="font-weight: 600; color: ${n.severity === 'critical' ? 'var(--accent-red)' : 'var(--accent-yellow)'};">${n.severity === 'critical' ? '🔴' : '🟡'} ${escapeHtml(n.title)}</span>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">${escapeHtml(n.detail)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                })
+                .catch(() => {});
+        }
+
+        // --- Session Explorer ---
+        function loadSessions() {
+            fetch(`${getBasePath()}/api/sessions/detailed`)
+                .then(r => r.json())
+                .then(d => {
+                    const sessions = d.sessions || [];
+                    const fmt = (n) => n >= 1000000 ? (n / 1000000).toFixed(1) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'K' : n;
+
+                    const totalTokens = sessions.reduce((s, x) => s + x.tokens, 0);
+                    const totalInput = sessions.reduce((s, x) => s + x.inputTokens, 0);
+                    const totalOutput = sessions.reduce((s, x) => s + x.outputTokens, 0);
+
+                    document.getElementById('sessions-total').textContent = sessions.length + ' sessions';
+                    document.getElementById('sessions-total-tokens').textContent = fmt(totalTokens);
+                    document.getElementById('sessions-input-tokens').textContent = fmt(totalInput);
+                    document.getElementById('sessions-output-tokens').textContent = fmt(totalOutput);
+
+                    const list = document.getElementById('sessions-list');
+                    if (!sessions.length) {
+                        list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">No sessions found</p>';
+                        return;
+                    }
+                    // Sort by most recent
+                    sessions.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+                    list.innerHTML = sessions.map(s => {
+                        const age = s.ageMs ? formatTimeAgo(new Date(Date.now() - s.ageMs).toISOString()) : '--';
+                        const modelShort = (s.model || '').split('/').pop();
+                        return `<div class="session-card">
+                            <div>
+                                <div class="session-agent">${escapeHtml(s.agent)}</div>
+                                <div class="session-model">${escapeHtml(modelShort)}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">${age}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div class="session-tokens">${fmt(s.tokens)} tokens</div>
+                                <div style="font-size: 0.7rem; color: var(--text-muted);">in: ${fmt(s.inputTokens)} / out: ${fmt(s.outputTokens)}</div>
+                                <div style="font-size: 0.7rem; color: var(--text-muted);">ctx: ${fmt(s.contextTokens)}</div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                })
+                .catch(err => {
+                    document.getElementById('sessions-list').innerHTML = '<p style="color: var(--accent-red); text-align: center; padding: 2rem;">Failed to load sessions</p>';
+                });
+        }
+
+        // --- Memory Search ---
+        function searchMemory() {
+            const query = document.getElementById('memory-query').value.trim();
+            if (!query) return;
+            const agent = document.getElementById('memory-agent-select').value;
+            const container = document.getElementById('memory-results');
+            container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">Searching...</div>';
+
+            const params = new URLSearchParams({ q: query });
+            if (agent) params.set('agent', agent);
+
+            fetch(`${getBasePath()}/api/memory/search?${params}`)
+                .then(r => r.json())
+                .then(d => {
+                    const results = d.results || [];
+                    if (Array.isArray(results) && results.length === 0) {
+                        container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">No results found</div>';
+                        return;
+                    }
+                    // Handle both array and object results
+                    const items = Array.isArray(results) ? results : (results.results || results.snippets || [results]);
+                    if (!items.length) {
+                        container.innerHTML = `<div class="memory-result"><div class="memory-result-text">${escapeHtml(d.raw || JSON.stringify(results))}</div></div>`;
+                        return;
+                    }
+                    container.innerHTML = items.map(r => `
+                        <div class="memory-result">
+                            <div class="memory-result-source">${escapeHtml(r.source || r.file || r.path || '--')}</div>
+                            <div class="memory-result-text">${escapeHtml(r.snippet || r.text || r.content || JSON.stringify(r))}</div>
+                            ${r.score !== undefined ? `<div class="memory-result-score">Score: ${r.score}</div>` : ''}
+                        </div>
+                    `).join('');
+                })
+                .catch(err => {
+                    container.innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 2rem;">Search error: ${escapeHtml(err.message)}</div>`;
+                });
+        }
+
+        // Memory search on Enter
+        document.getElementById('memory-query').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchMemory();
+        });
+
+        // --- Agent Chat ---
+        function sendAgentChat() {
+            const input = document.getElementById('chat-input');
+            const btn = document.getElementById('chat-send-btn');
+            const agentId = document.getElementById('chat-agent-select').value;
+            const message = input.value.trim();
+            if (!message) return;
+
+            const messagesDiv = document.getElementById('chat-messages');
+            // Clear placeholder if first message
+            if (messagesDiv.querySelector('div[style*="text-align: center"]')) {
+                messagesDiv.innerHTML = '';
+            }
+
+            // Add user message
+            const userMsg = document.createElement('div');
+            userMsg.className = 'chat-msg user';
+            userMsg.innerHTML = `${escapeHtml(message)}<div class="chat-meta">You → ${escapeHtml(agentId)}</div>`;
+            messagesDiv.appendChild(userMsg);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            input.value = '';
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+
+            fetch(`${getBasePath()}/api/agent-chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId, message })
+            })
+            .then(r => r.json())
+            .then(d => {
+                const agentMsg = document.createElement('div');
+                agentMsg.className = 'chat-msg agent';
+                if (d.success) {
+                    agentMsg.innerHTML = `<pre style="white-space: pre-wrap; margin: 0; font-family: inherit;">${escapeHtml(d.output || '(empty response)')}</pre><div class="chat-meta">${escapeHtml(agentId)}</div>`;
+                } else {
+                    agentMsg.innerHTML = `<span style="color: var(--accent-red);">Error: ${escapeHtml(d.error || 'Unknown error')}</span><div class="chat-meta">${escapeHtml(agentId)}</div>`;
+                }
+                messagesDiv.appendChild(agentMsg);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            })
+            .catch(err => {
+                const errMsg = document.createElement('div');
+                errMsg.className = 'chat-msg agent';
+                errMsg.innerHTML = `<span style="color: var(--accent-red);">Failed to send: ${escapeHtml(err.message)}</span>`;
+                messagesDiv.appendChild(errMsg);
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.textContent = 'Send';
+            });
+        }
+
+        // Chat on Enter
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendAgentChat();
+        });
+
+        // --- Notifications ---
+        let prevTab = 'dashboard';
+        function toggleNotifications() {
+            const current = document.querySelector('.tab-content.active')?.id;
+            if (current === 'notifications') {
+                switchTab(prevTab);
+            } else {
+                prevTab = current || 'dashboard';
+                switchTab('notifications');
+            }
+        }
+
+        function loadNotifications() {
+            fetch(`${getBasePath()}/api/notifications`)
+                .then(r => r.json())
+                .then(d => {
+                    const notifs = d.notifications || [];
+                    const count = d.count || notifs.length;
+
+                    // Update bell badge
+                    const badge = document.getElementById('notif-badge');
+                    if (count > 0) {
+                        badge.style.display = 'block';
+                        badge.textContent = count > 9 ? '9+' : count;
+                    } else {
+                        badge.style.display = 'none';
+                    }
+
+                    document.getElementById('notif-total-count').textContent = count + ' alerts';
+
+                    const list = document.getElementById('notifications-list');
+                    if (!notifs.length) {
+                        list.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">All clear - no alerts</div>';
+                        return;
+                    }
+                    list.innerHTML = notifs.map(n => {
+                        const icon = n.severity === 'critical' ? '🔴' : n.severity === 'warning' ? '🟡' : '🔵';
+                        const cls = n.severity === 'critical' ? 'notif-critical' : n.severity === 'warning' ? 'notif-warning' : '';
+                        const time = n.timestamp ? formatTimeAgo(new Date(n.timestamp).toISOString()) : '';
+                        return `<div class="notif-item ${cls}">
+                            <span class="notif-icon">${icon}</span>
+                            <div>
+                                <div class="notif-title">${escapeHtml(n.title)}</div>
+                                <div class="notif-detail">${escapeHtml(n.detail)}</div>
+                                ${time ? `<div class="notif-time">${time}</div>` : ''}
+                            </div>
+                        </div>`;
+                    }).join('');
+                })
+                .catch(() => {});
+        }
+
+        // --- Initial Load ---
+        loadDashboard();
+        loadDocuments();
+        loadSMSLog();
+        loadModelUsage();
+        loadAgentRoster();
+        loadActiveRuns();
+        loadSystemHealth();
+        loadGatewayUptime();
+        loadAgentTimeline();
+        loadCronAlerts();
+        loadNotifications();
+        connectWebSocket();
+
+        // Refresh intervals
+        setInterval(loadDashboard, 30000);
+        setInterval(updateHeartbeat, 1000);
+        setInterval(loadSMSLog, 30000);
+        setInterval(loadModelUsage, 30000);
+        setInterval(loadActiveRuns, 30000);
+        setInterval(loadAgentRoster, 300000);
+        setInterval(loadSystemHealth, 15000);
+        setInterval(loadGatewayUptime, 30000);
+        setInterval(loadAgentTimeline, 60000);
+        setInterval(loadCronAlerts, 60000);
+        setInterval(loadNotifications, 60000);
+        
+        // Handle enter key for task input
+        document.getElementById('new-task-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addTask();
+        });
+        
+        // PIN Authentication
+        async function checkPin() {
+            const pin = document.getElementById('pin-input').value;
+            try {
+                const res = await fetch(`${getBasePath()}/api/auth`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    sessionStorage.setItem('mc_authenticated', 'true');
+                    document.getElementById('login-overlay').classList.add('hidden');
+                    document.getElementById('login-error').style.display = 'none';
+                } else {
+                    document.getElementById('login-error').style.display = 'block';
+                    document.getElementById('pin-input').value = '';
+                    document.getElementById('pin-input').focus();
+                }
+            } catch {
+                document.getElementById('login-error').textContent = 'Server error. Try again.';
+                document.getElementById('login-error').style.display = 'block';
+            }
+        }
+        
+        function logout() {
+            sessionStorage.removeItem('mc_authenticated');
+            document.getElementById('login-overlay').classList.remove('hidden');
+            document.getElementById('pin-input').value = '';
+        }
+        
+        // Check auth on load
+        if (sessionStorage.getItem('mc_authenticated') === 'true') {
+            document.getElementById('login-overlay').classList.add('hidden');
+        }
+        
+        // Handle enter key on PIN input
+        document.getElementById('pin-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') checkPin();
+        });
+        
+        // Focus PIN input on load if not authenticated
+        if (sessionStorage.getItem('mc_authenticated') !== 'true') {
+            document.getElementById('pin-input').focus();
+        }
+
+    </script>
+</body>
+</html>

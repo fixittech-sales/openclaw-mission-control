@@ -1,0 +1,164 @@
+/* Mission Control — Document PDF Stylesheet */
+@page {
+    margin: 2.5cm 2cm;
+    @bottom-center {
+        content: counter(page) " / " counter(pages);
+        font-size: 0.75em;
+        color: #999;
+    }
+}
+
+body {
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 12pt;
+    color: #1a1a2e;
+    line-height: 1.75;
+    background: white;
+}
+
+h1 {
+    font-size: 2em;
+    font-weight: 700;
+    color: #0a0a1a;
+    border-bottom: 2px solid #007aff;
+    padding-bottom: 0.3em;
+    margin-top: 0;
+}
+
+h2 {
+    font-size: 1.5em;
+    font-weight: 600;
+    color: #0a0a1a;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 0.25em;
+    margin-top: 1.8em;
+}
+
+h3 {
+    font-size: 1.25em;
+    font-weight: 600;
+    color: #1a1a2e;
+    margin-top: 1.5em;
+}
+
+h4, h5, h6 {
+    font-weight: 600;
+    color: #2a2a3e;
+    margin-top: 1.2em;
+}
+
+p { margin: 0.8em 0; }
+
+a {
+    color: #007aff;
+    text-decoration: none;
+}
+
+code {
+    background: #f0f4ff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'SFMono-Regular', 'Fira Code', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.88em;
+    color: #d63384;
+    border: 1px solid #e0e7ff;
+}
+
+pre {
+    background: #f6f8fa;
+    padding: 1.2em 1.5em;
+    border-radius: 8px;
+    overflow-x: auto;
+    border-left: 4px solid #007aff;
+    font-size: 0.85em;
+    line-height: 1.6;
+    margin: 1.2em 0;
+    page-break-inside: avoid;
+}
+
+pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+}
+
+blockquote {
+    border-left: 4px solid #007aff;
+    margin: 1em 0;
+    padding: 0.5em 1.2em;
+    color: #555;
+    background: #f0f6ff;
+    border-radius: 0 6px 6px 0;
+}
+
+blockquote p { margin: 0.3em 0; }
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1.2em 0;
+    font-size: 0.9em;
+    page-break-inside: avoid;
+}
+
+thead th {
+    background: #007aff;
+    color: white;
+    font-weight: 600;
+    padding: 10px 14px;
+    text-align: left;
+}
+
+td {
+    border: 1px solid #dde;
+    padding: 8px 14px;
+    vertical-align: top;
+}
+
+tr:nth-child(even) td {
+    background: #f6f8ff;
+}
+
+tr:nth-child(odd) td {
+    background: white;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+}
+
+hr {
+    border: none;
+    border-top: 2px solid #e0e0ee;
+    margin: 2em 0;
+}
+
+ul, ol {
+    padding-left: 1.8em;
+    margin: 0.8em 0;
+}
+
+li { margin: 0.3em 0; }
+
+li > ul, li > ol {
+    margin: 0.2em 0;
+}
+
+strong { font-weight: 700; }
+em { font-style: italic; }
+
+.doc-header {
+    padding-bottom: 1.5em;
+    margin-bottom: 2em;
+    border-bottom: 3px solid #007aff;
+}
+
+.doc-meta {
+    font-size: 0.8em;
+    color: #888;
+    margin-top: 0.5em;
+}

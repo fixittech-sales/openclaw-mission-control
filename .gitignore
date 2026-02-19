@@ -1,0 +1,31 @@
+# Environment and secrets
+.env
+
+# Dependencies
+node_modules/
+
+# Runtime data
+agent-comms.json
+minimax-usage.json
+server.out
+server.pid
+
+# Uploaded documents (user data)
+documents/
+public/documents/
+
+# Backup and test files
+*.backup-*
+public/test-*.html
+public/minimax-test-screenshot.png
+
+# Lock file (users regenerate on install)
+package-lock.json
+
+# Process files
+*.pid
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
