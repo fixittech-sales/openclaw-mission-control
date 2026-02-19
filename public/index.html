@@ -2303,7 +2303,8 @@
         setInterval(loadAgentTimeline, 60000);
         setInterval(loadCronAlerts, 60000);
         setInterval(loadNotifications, 60000);
-        
+        setInterval(loadSessions, 10000);
+
         // Handle enter key for task input
         document.getElementById('new-task-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') addTask();
