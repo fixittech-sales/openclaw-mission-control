@@ -860,24 +860,47 @@ app.post('/api/memory/reindex', (req, res) => {
 
 // --- Session Explorer ---
 app.get('/api/sessions/detailed', (req, res) => {
+  const seen = new Set();
+  const sessions = [];
+
+  function addSession(s) {
+    const key = s.key || '';
+    if (seen.has(key)) return;
+    if (key) seen.add(key);
+    sessions.push({
+      key,
+      agent: key.split(':')[1] || 'unknown',
+      model: s.model || 'unknown',
+      tokens: s.totalTokens || 0,
+      inputTokens: s.inputTokens || 0,
+      outputTokens: s.outputTokens || 0,
+      updatedAt: s.updatedAt || null,
+      ageMs: s.ageMs || (s.updatedAt ? Date.now() - s.updatedAt : null),
+      contextTokens: s.contextTokens || 0
+    });
+  }
+
+  // Read all agent sessions.json files directly (catches all agents)
+  try {
+    const agents = fs.readdirSync(config.openclaw.agentsDir);
+    agents.forEach(agentId => {
+      const sessFile = path.join(config.openclaw.agentsDir, agentId, 'sessions', 'sessions.json');
+      try {
+        const data = JSON.parse(fs.readFileSync(sessFile, 'utf-8'));
+        Object.entries(data).forEach(([key, val]) => {
+          addSession({ key, ...val });
+        });
+      } catch {}
+    });
+  } catch {}
+
+  // Also pull from CLI for any extras
   exec('openclaw sessions list --json 2>/dev/null', (err, stdout) => {
     try {
       const data = JSON.parse(stdout);
-      const sessions = (data.sessions || []).map(s => ({
-        key: s.key,
-        agent: s.key?.split(':')[1] || 'unknown',
-        model: s.model || 'unknown',
-        tokens: s.totalTokens || 0,
-        inputTokens: s.inputTokens || 0,
-        outputTokens: s.outputTokens || 0,
-        updatedAt: s.updatedAt,
-        ageMs: s.ageMs,
-        contextTokens: s.contextTokens || 0
-      }));
-      res.json({ sessions });
-    } catch {
-      res.json({ sessions: [] });
-    }
+      (data.sessions || []).forEach(s => addSession(s));
+    } catch {}
+    res.json({ sessions });
   });
 });
 

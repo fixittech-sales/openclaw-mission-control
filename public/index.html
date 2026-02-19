@@ -1033,6 +1033,10 @@
                     <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Output</div>
                     <div id="sessions-output-tokens" style="font-size: 1.4rem; font-weight: 700; color: var(--accent-green); margin-top: 0.25rem;">--</div>
                 </div>
+                <div class="card" style="flex: 1; min-width: 120px; text-align: center;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Est. Cost</div>
+                    <div id="sessions-total-cost" style="font-size: 1.4rem; font-weight: 700; color: var(--accent-yellow); margin-top: 0.25rem;">--</div>
+                </div>
             </div>
             <div id="sessions-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
                 <p style="color: var(--text-muted); text-align: center; padding: 2rem;">Loading sessions...</p>
@@ -1314,6 +1318,32 @@
                 window.location.pathname === '/mission-control' ||
                 window.location.pathname.startsWith('/mission-control/')
             ) ? '/mission-control' : '';
+        }
+
+        // ── Model pricing (blended rate per million tokens) ─────────────
+        // Estimated at ~75% input / 25% output split.
+        // Rates: $/MTok  → input, output, blended
+        const MODEL_PRICING = {
+            'claude-opus-4-6':       { input: 15,   output: 75,  blended: 30.00 },
+            'claude-opus-4-5':       { input: 15,   output: 75,  blended: 30.00 },
+            'claude-sonnet-4-5':     { input: 3,    output: 15,  blended: 6.00 },
+            'claude-sonnet-4-20250514': { input: 3, output: 15,  blended: 6.00 },
+            'claude-haiku-4-5':      { input: 0.80, output: 4,   blended: 1.60 },
+            'gpt-5.2':              { input: 2.50, output: 10,   blended: 4.375 },
+            'gpt-4.1':              { input: 2,    output: 8,    blended: 3.50 },
+        };
+
+        function estimateCost(model, totalTokens) {
+            const pricing = MODEL_PRICING[model];
+            if (!pricing || !totalTokens) return 0;
+            return (totalTokens / 1_000_000) * pricing.blended;
+        }
+
+        function formatCost(cost) {
+            if (cost === 0) return '--';
+            if (cost < 0.01) return '<$0.01';
+            if (cost < 1) return '$' + cost.toFixed(2);
+            return '$' + cost.toFixed(2);
         }
 
         // ── Auth token management ──────────────────────────────────────
@@ -2053,11 +2083,13 @@
                     const totalTokens = sessions.reduce((s, x) => s + x.tokens, 0);
                     const totalInput = sessions.reduce((s, x) => s + x.inputTokens, 0);
                     const totalOutput = sessions.reduce((s, x) => s + x.outputTokens, 0);
+                    const totalCost = sessions.reduce((s, x) => s + estimateCost(x.model, x.tokens), 0);
 
                     document.getElementById('sessions-total').textContent = sessions.length + ' sessions';
                     document.getElementById('sessions-total-tokens').textContent = fmt(totalTokens);
                     document.getElementById('sessions-input-tokens').textContent = fmt(totalInput);
                     document.getElementById('sessions-output-tokens').textContent = fmt(totalOutput);
+                    document.getElementById('sessions-total-cost').textContent = formatCost(totalCost);
 
                     const list = document.getElementById('sessions-list');
                     if (!sessions.length) {
@@ -2069,6 +2101,8 @@
                     list.innerHTML = sessions.map(s => {
                         const age = s.ageMs ? formatTimeAgo(new Date(Date.now() - s.ageMs).toISOString()) : '--';
                         const modelShort = (s.model || '').split('/').pop();
+                        const cost = estimateCost(s.model, s.tokens);
+                        const costStr = cost > 0 ? `<div style="font-size: 0.8rem; font-weight: 600; color: var(--accent-yellow); margin-top: 0.25rem;">~${formatCost(cost)}</div>` : '';
                         return `<div class="session-card">
                             <div>
                                 <div class="session-agent">${escapeHtml(s.agent)}</div>
@@ -2079,6 +2113,7 @@
                                 <div class="session-tokens">${fmt(s.tokens)} tokens</div>
                                 <div style="font-size: 0.7rem; color: var(--text-muted);">in: ${fmt(s.inputTokens)} / out: ${fmt(s.outputTokens)}</div>
                                 <div style="font-size: 0.7rem; color: var(--text-muted);">ctx: ${fmt(s.contextTokens)}</div>
+                                ${costStr}
                             </div>
                         </div>`;
                     }).join('');
